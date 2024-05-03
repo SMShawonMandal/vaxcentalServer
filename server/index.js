@@ -81,16 +81,30 @@ async function run() {
         // Extract form data from request body
         const { name, phonenumber, nid, disease_name, total_doses, completed_doses, status } = req.body;
 
-        const result = await ongoingVaccination.insertOne({
-          name,
-          phonenumber,
-          nid,
-          disease_name,
-          total_doses,
-          completed_doses,
-          status
-        });
-        res.status(201).send({ data: result });
+        // exception handling if the user already registered a vaccine and then try to register again
+
+        const alreadyRegistered = await ongoingVaccination.findOne({ disease_name: disease_name });
+
+        // console.log(alreadyRegistered);
+
+        if (alreadyRegistered) {
+          return res.status(400).send({ status: 400, message: "User already registered" });
+        }
+
+        else {
+          const result = await ongoingVaccination.insertOne({
+            name,
+            phonenumber,
+            nid,
+            disease_name,
+            total_doses,
+            completed_doses,
+            status
+          });
+          res.status(200).send({ status: 200, data: result });
+        }
+
+
 
       } catch (error) {
         console.error('Error:', error);
@@ -129,6 +143,37 @@ async function run() {
         res.status(500).send('Internal server error');
       }
     });
+
+
+    // get registered vaccine api 
+
+    app.get('/api/ongoing', async (req, res) => {
+
+
+      try {
+        const registeredvaccine = await ongoingVaccination.find({status:'ongoing'}).toArray()
+        res.status(201).send({ data: registeredvaccine });
+
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+
+    // get completed vaccine api
+
+    app.get('/api/completed', async (req, res) => {
+      try {
+
+        const completedvaccine = await ongoingVaccination.find({status:'completed'}).toArray()
+        res.status(201).send({ data: completedvaccine });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
