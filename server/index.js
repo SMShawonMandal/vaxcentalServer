@@ -23,6 +23,8 @@ async function run() {
 
     const UserCollection = client.db('VaxCentral').collection('user_credentials');
 
+    const childrenCollection = client.db('VaxCentral').collection('Childrens');
+
     // creating vaccine collection
     const vaccines = client.db('VaxCentral').collection('vaccines');
 
@@ -83,11 +85,12 @@ async function run() {
 
         // exception handling if the user already registered a vaccine and then try to register again
 
-        const alreadyRegistered = await ongoingVaccination.findOne({ disease_name: disease_name });
+        const alreadyRegisteredvaccine = await ongoingVaccination.findOne({ $and: [ { disease_name: disease_name }, { nid: nid } ] });
 
+        // const alreadyRegisterednid = await alreadyRegisteredvaccine.findOne({ nid: nid });
         // console.log(alreadyRegistered);
 
-        if (alreadyRegistered) {
+        if (alreadyRegisteredvaccine) {
           return res.status(400).send({ status: 400, message: "User already registered" });
         }
 
@@ -151,7 +154,7 @@ async function run() {
 
 
       try {
-        const registeredvaccine = await ongoingVaccination.find({status:'ongoing'}).toArray()
+        const registeredvaccine = await ongoingVaccination.find({ status: 'ongoing' }).toArray()
         res.status(201).send({ data: registeredvaccine });
 
       } catch (error) {
@@ -166,7 +169,7 @@ async function run() {
     app.get('/api/completed', async (req, res) => {
       try {
 
-        const completedvaccine = await ongoingVaccination.find({status:'completed'}).toArray()
+        const completedvaccine = await ongoingVaccination.find({ status: 'completed' }).toArray()
         res.status(201).send({ data: completedvaccine });
       } catch (error) {
         console.error('Error:', error);
@@ -174,13 +177,39 @@ async function run() {
       }
     });
 
+    // post request for children add
 
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
+    app.post('/api/childrens', async (req, res) => {
+      try {
+        const childinfo = req.body;
+        const response = await childrenCollection.insertOne(childinfo)
+        res.status(201).send({ data: response });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    })
 
-  }
+
+    // get request for childrens
+    app.get('/api/childrens', async (req, res) => {
+
+      try {
+        const response = await childrenCollection.find().toArray();
+        res.status(201).send({ data: response });
+
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    })
+
+  // Send a ping to confirm a successful connection
+  await client.db("admin").command({ ping: 1 });
+  console.log("Pinged your deployment. You successfully connected to MongoDB!");
+} finally {
+
+}
 }
 run().catch(console.dir);
 
