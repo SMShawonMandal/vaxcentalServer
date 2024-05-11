@@ -22,6 +22,7 @@ async function run() {
   try {
 
     const UserCollection = client.db('VaxCentral').collection('user_credentials');
+    const EmployeeCollection = client.db('VaxCentral').collection('employee_credentials');
 
     const childrenCollection = client.db('VaxCentral').collection('Childrens');
 
@@ -147,6 +148,23 @@ async function run() {
       }
     });
 
+
+    // post request for employee login
+
+    app.post('/api/Login/emoployee', async (req, res) => {
+      try {
+        // Extract form data from request body
+        const {employee_id , password} = req.body;
+        const existingEmployee = await EmployeeCollection.findOne({ employee_id, password });
+        if (existingEmployee.employee_id === employee_id && existingEmployee.password === password) {
+          res.status(201).send({ token: "1a2b3c4d5e6f7081920a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e", existingEmployee: existingEmployee });
+        }
+
+      } catch (error) {
+        console.error('Error:', error); 
+        res.status(500).send('Internal server error');
+      }
+    });
 
     // get registered vaccine api 
 
