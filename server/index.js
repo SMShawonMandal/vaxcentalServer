@@ -4,6 +4,7 @@ const port = 5001
 const cors = require('cors');
 app.use(cors());
 app.use(express.json());
+const jwt = require('jsonwebtoken');
 
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
@@ -22,7 +23,8 @@ async function run() {
   try {
 
     const UserCollection = client.db('VaxCentral').collection('user_credentials');
-    const EmployeeCollection = client.db('VaxCentral').collection('employee_credentials');
+
+    // const EmployeeCollection = client.db('VaxCentral').collection('employee_credentials');
 
     const childrenCollection = client.db('VaxCentral').collection('Childrens');
 
@@ -51,7 +53,7 @@ async function run() {
     app.post('/api/signup', async (req, res) => {
       try {
         // Extract form data from request body
-        const { fullName, nidNumber, mobileNumber, dob, password } = req.body;
+        const { fullName, nidNumber, mobileNumber, dob, password,designation } = req.body;
 
         // Updated here
         const latestUser = await UserCollection.countDocuments() // This line helps to count total data from a database
@@ -65,10 +67,11 @@ async function run() {
           nidNumber,
           mobileNumber,
           dob,
-          password
+          password,
+          designation
         });
 
-        console.log(userId, fullName, nidNumber, mobileNumber, dob, password);
+        console.log(userId, fullName, nidNumber, mobileNumber, dob, password,designation);
         // console.log('User inserted:', result);
 
         res.status(201).send('User registered successfully');
@@ -133,38 +136,46 @@ async function run() {
 
     app.post('/api/login', async (req, res) => {
       try {
-        // Extract form data from request body
         const { mobileNumber, password } = req.body;
-        console.log(mobileNumber, password)
-        const existingUser = await UserCollection.findOne({ mobileNumber, password });
 
-        if (existingUser.mobileNumber === mobileNumber && existingUser.password === password) {
-          res.status(201).send({ token: "0c0c0df58408b9827a245e7d215687e18d42869de66eb687550491daad648251eb5fb763273e252519495f30e6268c6c", existingUser: existingUser });
+        const userData = await UserCollection.findOne({ mobileNumber : mobileNumber , password : password });
+
+        console.log(userData);
+
+        if (!userData) {
+          res.status(400).json({ message: 'Invalid mobile number or password' });
+          return;
         }
 
-      } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send('Internal server error');
+        const token = jwt.sign(
+          { id: userData._id },
+          'loki124578',
+          { expiresIn: '1h' }
+        );
+
+        res.json({ token, message: 'You are now logged in!', userData });
+      } catch (err) {
+        console.error('Error:', err);
+        res.status(500).json({ message: 'An error occurred' });
       }
     });
-
 
     // post request for employee login
 
-    app.post('/api/Login/emoployee', async (req, res) => {
-      try {
-        // Extract form data from request body
-        const {employee_id , password} = req.body;
-        const existingEmployee = await EmployeeCollection.findOne({ employee_id, password });
-        if (existingEmployee.employee_id === employee_id && existingEmployee.password === password) {
-          res.status(201).send({ token: "1a2b3c4d5e6f7081920a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e", existingEmployee: existingEmployee });
-        }
+    // app.post('/api/Login/emoployee', async (req, res) => {
+    //   try {
+    //     // Extract form data from request body
+    //     const {employee_id , password} = req.body;
+    //     const existingEmployee = await EmployeeCollection.findOne({ employee_id, password });
+    //     if (existingEmployee.employee_id === employee_id && existingEmployee.password === password) {
+    //       res.status(201).send({ token: "1a2b3c4d5e6f7081920a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e", existingEmployee: existingEmployee });
+    //     }
 
-      } catch (error) {
-        console.error('Error:', error); 
-        res.status(500).send('Internal server error');
-      }
-    });
+    //   } catch (error) {
+    //     console.error('Error:', error); 
+    //     res.status(500).send('Internal server error');
+    //   }
+    // });
 
     // get registered vaccine api 
 
