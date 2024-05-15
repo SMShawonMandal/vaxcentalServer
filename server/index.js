@@ -24,6 +24,8 @@ async function run() {
 
     const UserCollection = client.db('VaxCentral').collection('user_credentials');
 
+    const contactCollection = client.db('VaxCentral').collection('contactForm');
+
     // const userSearch = client.db('User').collection('user_credentials');
     // const EmployeeCollection = client.db('VaxCentral').collection('employee_credentials');
 
@@ -439,6 +441,24 @@ async function run() {
       // console.log(filter, result)
       res.status(200).json({ data: result });
     });
+
+    // Guest api  .......................................
+
+    app.post('/api/contact', async (req, res) => {
+      try {
+        const {name, email, message, phoneNumber,subject } = req.body;
+        const response = await contactCollection.insertOne({
+          name, email, message, phoneNumber,subject
+        }
+        )
+        res.status(201).send({ data: response });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    })
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
