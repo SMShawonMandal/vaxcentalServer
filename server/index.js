@@ -193,6 +193,9 @@ async function run() {
     });
 
 
+    
+
+
     // ------------------------------------------------------------------------------------------
     // User's child ongoing api
     // --------------------------------------------------------------------------------------------
@@ -350,6 +353,48 @@ async function run() {
 
     // get registered vaccine api 
 
+    
+     //post register vaccine api 
+     app.post('/api/ongoing', async (req, res) => {
+      try {
+        // Extract form data from request body
+        const { name, phonenumber, nid, disease_name, total_doses, completed_doses, status } = req.body;
+
+        // exception handling if the user already registered a vaccine and then try to register again
+
+        const alreadyRegisteredvaccine = await ongoingVaccination.findOne({ $and: [{ disease_name: disease_name }, { nid: nid }] });
+
+        // const alreadyRegisterednid = await alreadyRegisteredvaccine.findOne({ nid: nid });
+        // console.log(alreadyRegistered);
+
+        if (alreadyRegisteredvaccine) {
+          return res.status(400).send({ status: 400, message: "User already registered" });
+        }
+
+        else {
+          const result = await ongoingVaccination.insertOne({
+            name,
+            phonenumber,
+            nid,
+            disease_name,
+            total_doses,
+            completed_doses,
+            status
+          });
+          res.status(200).send({ status: 200, data: result });
+        }
+
+
+
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+
+
+
     // user ongoing api
     app.get('/api/ongoing/:nid', async (req, res) => {
 
@@ -364,20 +409,48 @@ async function run() {
       }
     });
 
+    // user vaccine register api
 
-    // ongoing vacchine api for children
-    // app.get('/api/childOngoing/:nid/:childName', async (req, res) => {
+    app.patch('/api/user/ongoing/vaccines', async (req, res) => {
+      try {
+        const{name , nextDate, nid, completed_doses , disease_name, total_doses } = req.body;
 
-    //   const { nid, childName } = req.params
-    //   try {
-    //     const ongoing = await childrenOngoing.find({ status: 'ongoing', parentNid: nid, name: childName }).toArray()
-    //     res.status(201).send({ data: ongoing });
+        const existing = await ongoingVaccination.findOne({ disease_name: disease_name, nid: nid, name: name });
 
-    //   } catch (error) {
-    //     console.error('Error:', error);
-    //     res.status(500).send('Internal server error');
-    //   }
-    // });
+        if (existing.completed_doses + 1 === existing.total_doses) {
+          const filter = { disease_name: disease_name, nid: nid, name: name };
+          const update = {
+            $set: {
+              status: 'completed',
+              completion_date: existing.next_dose_date,
+            }
+          };
+          const result = await ongoingVaccination.updateOne
+          (filter, update);
+          console.log("Update successful", result);
+          return res.status(200).send({ status: 200, data: result });
+        }
+        else if (existing.completed_doses + 1 < existing.total_doses) {
+          const filter = { disease_name: disease_name, nid: nid, name: name };
+          const update = {
+            $set: {
+              completed_doses: existing.completed_doses + 1,
+              next_dose_date: nextDate
+            }
+          };
+          const result = await ongoingVaccination.updateOne
+          (filter, update);
+          console.log("Update successful", result);
+          return res.status(200).send({ status: 200, data: result });
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        return res.status(500).send('Internal server error');
+      }
+    });
+
+
+
 
 
     // get completed vaccine api
