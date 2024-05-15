@@ -44,14 +44,14 @@ async function run() {
     // dose traker collection
     const doseTraker = client.db('VaxCentral').collection('doseTraker');
 
-     // ------------------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------------
     // Dose traking api
     // ---------------------------------------------------------------------------------------------
-    app.post('/api/dose/doseTraker'  , async (req, res) => {
+    app.post('/api/dose/doseTraker', async (req, res) => {
       try {
         console.log('hitted')
-        const {name, disease_name,parentNid} = req.body;
-        const result = await doseTraker.findOne({name: name, parentNid: parentNid, disease_name:disease_name});
+        const { name, disease_name, parentNid } = req.body;
+        const result = await doseTraker.findOne({ name: name, parentNid: parentNid, disease_name: disease_name });
         res.status(201).send({ data: result });
       } catch (error) {
         console.error('Error:', error);
@@ -60,11 +60,11 @@ async function run() {
 
     })
 
-    app.patch('/api/dose/doseTraker'  , async (req, res) => {
+    app.patch('/api/dose/doseTraker', async (req, res) => {
       try {
         console.log('hitted')
-        const {name, disease_name,parentNid} = req.body;
-        const result = await doseTraker.updateOne({name: name, parentNid: parentNid, disease_name:disease_name}, {btnStatus: false});
+        const { name, disease_name, parentNid } = req.body;
+        const result = await doseTraker.updateOne({ name: name, parentNid: parentNid, disease_name: disease_name }, { btnStatus: false });
         res.status(201).send({ data: result });
       } catch (error) {
         console.error('Error:', error);
@@ -72,11 +72,11 @@ async function run() {
       }
 
     })
-    app.post('/api/doseTraker'  , async (req, res) => {
+    app.post('/api/doseTraker', async (req, res) => {
       try {
-        const {name, completed_doses, nextDate, disease_name,parentNid} = req.body;
+        const { name, completed_doses, nextDate, disease_name, parentNid } = req.body;
         const btnStatus = true
-        const result = await doseTraker.insertOne({name, completed_doses, disease_name,parentNid,enableDate:nextDate, btnStatus});
+        const result = await doseTraker.insertOne({ name, completed_doses, disease_name, parentNid, enableDate: nextDate, btnStatus });
         res.status(201).send({ data: result });
       } catch (error) {
         console.error('Error:', error);
@@ -115,10 +115,10 @@ async function run() {
         res.status(500).send('Internal server error');
       }
     });
-    
 
 
-     // ------------------------------------------------------------------------------------------
+
+    // ------------------------------------------------------------------------------------------
     // User Api
     // ---------------------------------------------------------------------------------------------
     // create user api
@@ -203,26 +203,26 @@ async function run() {
         // Extract form data from request body
         const { name, completed_doses, nextDate, disease_name, parentNid } = req.body;
         console.log(name, completed_doses, nextDate, disease_name, parentNid);
-    
+
         // Fetch the existing ongoing vaccination record
         const existing = await childrenOngoing.findOne({ disease_name: disease_name, parentNid: parentNid, name: name });
         console.log("existing", existing);
-    
+
         // Check if completed doses are less than total doses
 
-        if(existing.completed_doses+1 === existing.total_doses){
+        if (existing.completed_doses + 1 === existing.total_doses) {
           const filter = { disease_name: disease_name, parentNid: parentNid, name: name };
           const update = {
             $set: {
               status: 'completed',
-              completion_date : existing.next_dose_date,
+              completion_date: existing.next_dose_date,
             }
           };
           const result = await childrenOngoing.updateOne(filter, update);
           console.log("Update successful", result);
           return res.status(200).send({ status: 200, data: result });
         }
-        else if( existing.completed_doses+1 < existing.total_doses) {
+        else if (existing.completed_doses + 1 < existing.total_doses) {
           const filter = { disease_name: disease_name, parentNid: parentNid, name: name };
           const update = {
             $set: {
@@ -265,7 +265,7 @@ async function run() {
         return res.status(500).send('Internal server error');
       }
     });
-    
+
     // ongoing vacchine api for children
     app.post('/api/child/childOngoing', async (req, res) => {
 
@@ -294,7 +294,7 @@ async function run() {
         res.status(500).send('Internal server error');
       }
     });
-    
+
     // registerd child vacchine api
     app.post('/api/childOngoing', async (req, res) => {
       try {
@@ -333,10 +333,10 @@ async function run() {
       }
     });
 
-    
+
     // child completed vaccine api
     app.get('/api/childCompleted/:nid/:name', async (req, res) => {
-      const {nid,name} = req.params
+      const { nid, name } = req.params
       try {
         const completedChildVaccine = await childrenOngoing.find({ status: 'completed', parentNid: nid, name: name }).toArray()
         res.status(201).send({ data: completedChildVaccine });
@@ -364,7 +364,7 @@ async function run() {
       }
     });
 
-  
+
     // ongoing vacchine api for children
     // app.get('/api/childOngoing/:nid/:childName', async (req, res) => {
 
@@ -446,9 +446,9 @@ async function run() {
 
     app.post('/api/contact', async (req, res) => {
       try {
-        const {name, email, message, phoneNumber,subject } = req.body;
+        const { name, email, message, phoneNumber, subject } = req.body;
         const response = await contactCollection.insertOne({
-          name, email, message, phoneNumber,subject
+          name, email, message, phoneNumber, subject
         }
         )
         res.status(201).send({ data: response });
@@ -457,6 +457,29 @@ async function run() {
         res.status(500).send('Internal server error');
       }
     })
+
+
+
+    app.post('/api/guest', async (req, res) => {
+  try {
+    const { guestDob } = req.body;
+    console.log(guestDob);
+
+    // Calculate age
+    const birthDate = new Date(guestDob);
+    const age = new Date().getFullYear() - birthDate.getFullYear();
+
+    // Query the database
+    const response = await vaccines.find({ minimum_age: { $lte: age }, maximum_age: { $gte: age } }).toArray();
+
+    res.status(201).send({ data: response });
+    console.log(response);
+  }
+  catch (error) {
+    console.error('Error:', error);
+    res.status(500).send('Internal server error');
+  }
+});
 
 
 
