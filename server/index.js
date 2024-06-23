@@ -59,11 +59,11 @@ async function run() {
     });
     app.get('/api/vaccines/:name', async (req, res) => {
       const { name } = req.params
-      console.log(name)
+      // console.log(name)
       try {
 
         const result = await vaccines.findOne({ vaccine_name: name });
-        console.log('Ongoin Vaccines:', result);
+        // console.log('Ongoin Vaccines:', result);
 
         res.status(201).send({ ...result });
       } catch (error) {
@@ -160,9 +160,9 @@ async function run() {
         const { name, nextDate, nid, vaccine_name, total_doses } = req.body;
 
         const existing = await childrenOngoing.findOne({ vaccine_name: vaccine_name, parentNid: nid, name: name });
-        console.log("existing", existing);
+        // console.log("existing", existing);
 
-        console.log(existing.completed_doses, total_doses, existing.completed_doses + 1 <= existing.total_doses)
+        // console.log(existing.completed_doses, total_doses, existing.completed_doses + 1 <= existing.total_doses)
 
         if (existing.completed_doses + 1 < existing.total_doses) {
           const filter = { vaccine_name: vaccine_name, parentNid: nid, name: name };
@@ -170,10 +170,10 @@ async function run() {
             $inc: { "completed_doses": 1 },
             $set: { "next_dose_date": nextDate }
           };
-          console.log("Updated", update)
+          // console.log("Updated", update)
           const result = await childrenOngoing.updateOne
             (filter, update);
-          console.log("Update successful", result);
+          // console.log("Update successful", result);
           return res.status(200).send({ status: 200, data: result });
         }
         else if (existing.completed_doses + 1 === existing.total_doses) {
@@ -186,7 +186,7 @@ async function run() {
           };
           const result = await childrenOngoing.updateOne
             (filter, update);
-          console.log("Update successfully completed", result);
+          // console.log("Update successfully completed", result);
           return res.status(200).send({ status: 200, data: result });
         }
       } catch (error) {
@@ -201,7 +201,7 @@ async function run() {
       const { nid, name } = req.body
       try {
         const ongoing = await childrenOngoing.find({ status: 'ongoing', parentNid: nid, name: name }).toArray()
-        console.log(ongoing)
+        // console.log(ongoing)
         res.status(201).send({ data: ongoing });
 
       } catch (error) {
@@ -215,7 +215,7 @@ async function run() {
       const { nid } = req.body
       try {
         const ongoing = await childrenOngoing.find({ status: 'ongoing', parentNid: nid }).toArray()
-        console.log(ongoing)
+        // console.log(ongoing)
         res.status(201).send({ data: ongoing });
 
       } catch (error) {
