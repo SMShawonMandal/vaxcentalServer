@@ -41,51 +41,6 @@ async function run() {
     // creating ongoing vaccine collection for children
     const childrenOngoing = client.db('VaxCentral').collection('childVaccine');
 
-    // dose traker collection
-    const doseTraker = client.db('VaxCentral').collection('doseTraker');
-
-    // ------------------------------------------------------------------------------------------
-    // Dose traking api
-    // ---------------------------------------------------------------------------------------------
-    app.post('/api/dose/doseTraker', async (req, res) => {
-      try {
-        console.log('hitted')
-        const { name, disease_name, parentNid } = req.body;
-        const result = await doseTraker.findOne({ name: name, parentNid: parentNid, disease_name: disease_name });
-        res.status(201).send({ data: result });
-      } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send('Internal server error');
-      }
-
-    })
-
-    app.patch('/api/dose/doseTraker', async (req, res) => {
-      try {
-        console.log('hitted')
-        const { name, disease_name, parentNid } = req.body;
-        const result = await doseTraker.updateOne({ name: name, parentNid: parentNid, disease_name: disease_name }, { btnStatus: false });
-        res.status(201).send({ data: result });
-      } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send('Internal server error');
-      }
-
-    })
-    app.post('/api/doseTraker', async (req, res) => {
-      try {
-        const { name, completed_doses, nextDate, disease_name, parentNid } = req.body;
-        const btnStatus = true
-        const result = await doseTraker.insertOne({ name, completed_doses, disease_name, parentNid, enableDate: nextDate, btnStatus });
-        res.status(201).send({ data: result });
-      } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send('Internal server error');
-      }
-
-    })
-
-
     // ------------------------------------------------------------------------------------------
     // vaccine api
     // ---------------------------------------------------------------------------------------------
@@ -104,10 +59,11 @@ async function run() {
     });
     app.get('/api/vaccines/:name', async (req, res) => {
       const { name } = req.params
+      console.log(name)
       try {
 
-        const result = await vaccines.findOne({ disease_name: name });
-        // console.log('Users:', result);
+        const result = await vaccines.findOne({ vaccine_name: name });
+        console.log('Ongoin Vaccines:', result);
 
         res.status(201).send({ ...result });
       } catch (error) {
@@ -116,7 +72,7 @@ async function run() {
       }
     });
 
-
+    // Admin Api
 
     // ------------------------------------------------------------------------------------------
     // User Api
@@ -172,8 +128,6 @@ async function run() {
 
         const userData = await UserCollection.findOne({ mobileNumber: mobileNumber, password: password });
 
-        // console.log(userData);
-
         if (!userData) {
           res.status(400).json({ message: 'Invalid mobile number or password' });
           return;
@@ -193,7 +147,7 @@ async function run() {
     });
 
 
-    
+
 
 
     // ------------------------------------------------------------------------------------------
@@ -201,68 +155,40 @@ async function run() {
     // --------------------------------------------------------------------------------------------
     //update vaccine status for children ongoing api 
     app.patch('/api/childOngoing', async (req, res) => {
+     
       try {
-        console.log("hitted");
-        // Extract form data from request body
-        const { name, completed_doses, nextDate, disease_name, parentNid } = req.body;
-        console.log(name, completed_doses, nextDate, disease_name, parentNid);
+        const { name, nextDate, nid, vaccine_name, total_doses } = req.body;
 
-        // Fetch the existing ongoing vaccination record
-        const existing = await childrenOngoing.findOne({ disease_name: disease_name, parentNid: parentNid, name: name });
+        const existing = await childrenOngoing.findOne({ vaccine_name: vaccine_name, parentNid: nid, name: name });
         console.log("existing", existing);
 
-        // Check if completed doses are less than total doses
+        console.log(existing.completed_doses, total_doses, existing.completed_doses + 1 <= existing.total_doses)
 
-        if (existing.completed_doses + 1 === existing.total_doses) {
-          const filter = { disease_name: disease_name, parentNid: parentNid, name: name };
+        if (existing.completed_doses + 1 < existing.total_doses) {
+          const filter = { vaccine_name: vaccine_name, parentNid: nid, name: name };
+          const update = {
+            $inc: { "completed_doses": 1 },
+            $set: { "next_dose_date": nextDate }
+          };
+          console.log("Updated", update)
+          const result = await childrenOngoing.updateOne
+            (filter, update);
+          console.log("Update successful", result);
+          return res.status(200).send({ status: 200, data: result });
+        }
+        else if (existing.completed_doses + 1 === existing.total_doses) {
+          const filter = { vaccine_name: vaccine_name, parentNid: nid, name: name };
           const update = {
             $set: {
               status: 'completed',
               completion_date: existing.next_dose_date,
             }
           };
-          const result = await childrenOngoing.updateOne(filter, update);
-          console.log("Update successful", result);
+          const result = await childrenOngoing.updateOne
+            (filter, update);
+          console.log("Update successfully completed", result);
           return res.status(200).send({ status: 200, data: result });
         }
-        else if (existing.completed_doses + 1 < existing.total_doses) {
-          const filter = { disease_name: disease_name, parentNid: parentNid, name: name };
-          const update = {
-            $set: {
-              completed_doses: existing.completed_doses + 1,
-              next_dose_date: nextDate
-            }
-          };
-          const result = await childrenOngoing.updateOne(filter, update);
-          console.log("Update successful", result);
-          return res.status(200).send({ status: 200, data: result });
-        }
-
-
-        // if (existing.completed_doses < existing.total_doses && existing.completed_doses !== existing.total_doses) {
-        //   // Increment completed doses and update next dose date
-        //   const filter = { disease_name: disease_name, parentNid: parentNid, name: name };
-        //   const update = {
-        //     $set: {
-        //       completed_doses: existing.completed_doses + 1,
-        //       next_dose_date: nextDate
-        //     }
-        //   };
-        //   const result = await childrenOngoing.updateOne(filter, update);
-        //   console.log("Update successful", result);
-        //   return res.status(200).send({ status: 200, data: result });
-        // } else {
-        //   // If all doses are completed, mark status as completed
-        //   const filter = { disease_name: disease_name, parentNid: parentNid, name: name };
-        //   const update = {
-        //     $set: {
-        //       status: 'completed'
-        //     }
-        //   };
-        //   const result = await childrenOngoing.updateOne(filter, update);
-        //   console.log("Vaccination completed", result);
-        //   return res.status(200).send({ status: 200, data: result });
-        // }
       } catch (error) {
         console.error('Error:', error);
         return res.status(500).send('Internal server error');
@@ -302,7 +228,7 @@ async function run() {
     app.post('/api/childOngoing', async (req, res) => {
       try {
         // Extract form data from request body
-        const { name, parentNid, disease_name, total_doses, completed_doses, status } = req.body;
+        const { name, parentNid, disease_name, vaccine_name, total_doses, completed_doses, status } = req.body;
 
         // exception handling if the user already registered a vaccine and then try to register again
 
@@ -320,6 +246,7 @@ async function run() {
             name,
             parentNid,
             disease_name,
+            vaccine_name,
             total_doses,
             completed_doses,
             status,
@@ -353,12 +280,12 @@ async function run() {
 
     // get registered vaccine api 
 
-    
-     //post register vaccine api 
-     app.post('/api/ongoing', async (req, res) => {
+
+    //post register vaccine api 
+    app.post('/api/ongoing', async (req, res) => {
       try {
         // Extract form data from request body
-        const { name, phonenumber, nid, disease_name, total_doses, completed_doses, status } = req.body;
+        const { name, phonenumber, nid, disease_name, vaccine_name, total_doses, completed_doses, next_dose_date, status } = req.body;
 
         // exception handling if the user already registered a vaccine and then try to register again
 
@@ -376,9 +303,11 @@ async function run() {
             name,
             phonenumber,
             nid,
+            vaccine_name,
             disease_name,
             total_doses,
             completed_doses,
+            next_dose_date,
             status
           });
           res.status(200).send({ status: 200, data: result });
@@ -413,12 +342,27 @@ async function run() {
 
     app.patch('/api/user/ongoing/vaccines', async (req, res) => {
       try {
-        const{name , nextDate, nid, completed_doses , disease_name, total_doses } = req.body;
+        const { name, nextDate, nid, completed_doses, disease_name, vaccine_name, total_doses } = req.body;
 
-        const existing = await ongoingVaccination.findOne({ disease_name: disease_name, nid: nid, name: name });
+        const existing = await ongoingVaccination.findOne({ vaccine_name: vaccine_name, nid: nid, name: name });
+        console.log(req.body)
 
-        if (existing.completed_doses + 1 === existing.total_doses) {
-          const filter = { disease_name: disease_name, nid: nid, name: name };
+        console.log(existing.completed_doses, total_doses, existing.completed_doses + 1 <= existing.total_doses)
+
+        if (existing.completed_doses + 1 < existing.total_doses) {
+          const filter = { vaccine_name: vaccine_name, nid: nid, name: name };
+          const update = {
+            $inc: { "completed_doses": 1 },
+            $set: { "next_dose_date": nextDate }
+          };
+          console.log("Updated", update)
+          const result = await ongoingVaccination.updateOne
+            (filter, update);
+          console.log("Update successful", result);
+          return res.status(200).send({ status: 200, data: result });
+        }
+        else if (existing.completed_doses + 1 === existing.total_doses) {
+          const filter = { vaccine_name: vaccine_name, nid: nid, name: name };
           const update = {
             $set: {
               status: 'completed',
@@ -426,21 +370,8 @@ async function run() {
             }
           };
           const result = await ongoingVaccination.updateOne
-          (filter, update);
-          console.log("Update successful", result);
-          return res.status(200).send({ status: 200, data: result });
-        }
-        else if (existing.completed_doses + 1 < existing.total_doses) {
-          const filter = { disease_name: disease_name, nid: nid, name: name };
-          const update = {
-            $set: {
-              completed_doses: existing.completed_doses + 1,
-              next_dose_date: nextDate
-            }
-          };
-          const result = await ongoingVaccination.updateOne
-          (filter, update);
-          console.log("Update successful", result);
+            (filter, update);
+          console.log("Update successfully completed", result);
           return res.status(200).send({ status: 200, data: result });
         }
       } catch (error) {
@@ -534,27 +465,349 @@ async function run() {
 
 
     app.post('/api/guest', async (req, res) => {
-  try {
-    const { guestDob } = req.body;
-    console.log(guestDob);
+      try {
+        const { guestDob } = req.body;
+        console.log(guestDob);
 
-    // Calculate age
-    const birthDate = new Date(guestDob);
-    const age = new Date().getFullYear() - birthDate.getFullYear();
+        // Calculate age
+        const birthDate = new Date(guestDob);
+        const age = new Date().getFullYear() - birthDate.getFullYear();
 
-    // Query the database
-    const response = await vaccines.find({ minimum_age: { $lte: age }, maximum_age: { $gte: age } }).toArray();
+        // Query the database
+        const response = await vaccines.find({ minimum_age: { $lte: age }, maximum_age: { $gte: age } }).toArray();
 
-    res.status(201).send({ data: response });
-    console.log(response);
-  }
-  catch (error) {
-    console.error('Error:', error);
-    res.status(500).send('Internal server error');
-  }
-});
+        res.status(201).send({ data: response });
+        console.log(response);
+      }
+      catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
 
 
+    // -------------------------------------------------------------------------------------------------------------- Admin 
+
+    // --------------------------------------------------------------------------------------------------------------
+
+
+    // read  user whoose designation is user
+    app.get('/api/admin/users', async (req, res) => {
+      try {
+        console.log('hit here')
+        const result = await UserCollection.find({ designation: 'user' }).toArray();
+        res.status(201).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // search a user
+    app.get('/api/admin/user/search/:nid', async (req, res) => {
+      try {
+        const { nid } = req.params;
+        const filter = { nidNumber: nid, designation: 'user' };
+        const result = await UserCollection.findOne(filter);
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+    // update user api
+    app.patch('/api/admin/user/edit', async (req, res) => {
+      try {
+        const { nid, fullName, nidNumber, mobileNumber, dob, password, } = req.body;
+        const filter = { nidNumber: nid, designation: 'user' };
+        const update = { $set: { fullName: fullName, nidNumber: nidNumber, mobileNumber: mobileNumber, dob: dob, password: password } };
+        console.log(update)
+        const result = await UserCollection.updateOne(filter, update);
+
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // delete a user
+    app.delete('/api/admin/user/delete/:nid', async (req, res) => {
+      try {
+        const { nid } = req.params;
+        const filter = { nidNumber: nid, designation: 'user' };
+        // const find = await UserCollection.findOne(filter)
+        // console.log(find)
+        console.log(req.params)
+        const result = await UserCollection.deleteOne(filter);
+        console.log(result)
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+
+    // read all employee api
+    app.get('/api/admin/employees', async (req, res) => {
+      try {
+        console.log('hit here employee')
+        const result = await UserCollection.find({ designation: 'employee' }).toArray();
+        res.status(201).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // add employee
+    app.post('/api/admin/employee/add', async (req, res) => {
+      try {
+        const { fullName, nidNumber, mobileNumber, dob, password } = req.body;
+
+        const latestUser = await UserCollection.countDocuments();
+
+        const userId = latestUser + 1;
+
+        // check if existing user exists using nid
+
+        const existingUser = await UserCollection.findOne({ nidNumber: nidNumber });
+
+        if (!existingUser) {
+
+          const result = await UserCollection.insertOne({
+            userId,
+            fullName,
+            nidNumber,
+            mobileNumber,
+            dob,
+            password,
+            designation: 'employee'
+          });
+
+          console.log(result);
+
+          res.status(201).send('User registered successfully');
+
+        }
+        else {
+          return res.status(400).send('User already exists');
+        }
+
+
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // search a eployee
+    app.get('/api/admin/employee/search/:nid', async (req, res) => {
+      try {
+        const { nid } = req.params;
+        const filter = { nidNumber: nid, designation: 'employee' };
+        const result = await UserCollection.findOne(filter);
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // edit employee
+    app.patch('/api/admin/employee/edit', async (req, res) => {
+      try {
+        const { nid, fullName, nidNumber, mobileNumber, dob, password, } = req.body;
+        const filter = { nidNumber: nid, designation: 'employee' };
+        const update = { $set: { fullName: fullName, nidNumber: nidNumber, mobileNumber: mobileNumber, dob: dob, password: password } };
+        console.log(update)
+        const result = await UserCollection.updateOne(filter, update);
+
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // delete a eployee
+    app.delete('/api/admin/employee/delete/:nid', async (req, res) => {
+      try {
+        const { nid } = req.params;
+        const filter = { nidNumber: nid, designation: 'employee' };
+        console.log(req.params)
+        const result = await UserCollection.deleteOne(filter);
+        console.log(result)
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // edit vaccine api
+    app.patch('/api/admin/vaccine/edit', async (req, res) => {
+      try {
+        const {
+          searchVaccineName,
+          total_dose_number,
+          maximum_age,
+          minimum_age,
+          first_gap,
+          second_gap,
+          third_gap,
+          fourth_gap,
+          fifth_gap } = req.body;
+
+        const filter = { vaccine_name: searchVaccineName };
+
+        console.log(total_dose_number, minimum_age, maximum_age, first_gap, second_gap, third_gap, fourth_gap, fifth_gap)
+
+        if (first_gap !== undefined) {
+          const update = { $set: { total_dose_number, minimum_age, maximum_age, first_gap } };
+          const result = await vaccines.updateOne(filter, update);
+          console.log(result)
+          console.log(result)
+        }
+        if (first_gap !== undefined && second_gap !== undefined) {
+          const update = { $set: { total_dose_number, minimum_age, maximum_age, first_gap, second_gap } };
+          const result = await vaccines.updateOne(filter, update);
+          console.log(result)
+          res.status(200).send({ data: result });
+        }
+        if (first_gap !== undefined && second_gap !== undefined && third_gap !== undefined) {
+          const update = { $set: { total_dose_number, minimum_age, maximum_age, first_gap, second_gap, third_gap } };
+          const result = await vaccines.updateOne(filter, update);
+          console.log(result)
+          res.status(200).send({ data: result });
+
+        }
+        if (first_gap !== undefined && second_gap !== undefined && third_gap !== undefined && fourth_gap !== undefined) {
+          const update = { $set: { total_dose_number, minimum_age, maximum_age, first_gap, second_gap, third_gap, fourth_gap } };
+          const result = await vaccines.updateOne(filter, update);
+          console.log(result)
+          res.status(200).send({ data: result });
+        }
+        if (first_gap !== undefined && second_gap !== undefined && third_gap !== undefined && fourth_gap !== undefined && fifth_gap !== undefined) {
+          const update = { $set: { total_dose_number, minimum_age, maximum_age, first_gap, second_gap, third_gap, fourth_gap, fifth_gap } };
+          const result = await vaccines.updateOne(filter, update);
+          console.log(result)
+          res.status(200).send({ data: result });
+        }
+
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // delete vaccine
+    app.delete('/api/admin/vaccine/delete/:vaccine_name', async (req, res) => {
+      try {
+        const { vaccine_name } = req.params;
+        const filter = { vaccine_name: vaccine_name };
+        console.log(req.params)
+        const result = await vaccines.deleteOne(filter);
+        console.log(result)
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // vaccine added api
+    app.post("/api/admin/vaccine/add", async (req, res) => {
+
+      try {
+
+        // console.log(vaccine_name, disease_name, total_dose_number, minimum_age, maximum_age, first_gap, second_gap, third_gap, fourth_gap, fifth_gap)
+
+        const isExistVaccine = await vaccines.findOne({ vaccine_name: req.body.vaccine_name });
+        if (!isExistVaccine) {
+
+          const result = await vaccines.insertOne(req.body);
+
+          console.log(result);
+          res.status(200).send({ data: result });
+        }
+        else {
+          console.log("Vaccine already exists");
+          return res.status(400).send({ message: 'Vaccine already exists' });
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    })
+
+
+    // get children by parent nid
+    app.post('/api/admin/children', async (req, res) => {
+      try {
+        const nid = req.body.searchString;
+        console.log(req.body)
+        const filter = { parentNid: nid };
+        console.log(filter)
+        const result = await childrenCollection.find(filter).toArray();
+        res.status(201).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // update child
+    app.patch('/api/admin/children/edit', async (req, res) => {
+      try {
+        const {
+          searchChild,
+          childName,
+          childGender,
+          childCertificate,
+          dob,
+          parentNid } = req.body;
+
+        console.log(childName, childGender, childCertificate, dob, parentNid)
+        const filter = { parentNid: parentNid, childName: searchChild };
+        const update = { $set: { childName: childName, childGender: childGender, childCertificate: childCertificate, dob: dob, parentNid: parentNid } };
+        console.log(update)
+        const result = await childrenCollection.updateOne(filter, update);
+
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+
+    // delete children
+    app.delete('/api/admin/children/delete/:nid/:childName', async (req, res) => {
+      try {
+        const { nid, childName } = req.params;
+        const filter = { parentNid: nid, childName: childName };
+        console.log(req.params)
+        const result = await childrenCollection.deleteOne(filter);
+        console.log(result)
+        res.status(200).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    // all complains
+    app.post('/api/admin/complains', async (req, res) => {
+      try {
+        const result = await contactCollection.find({}).toArray();
+        res.status(201).send({ data: result });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
