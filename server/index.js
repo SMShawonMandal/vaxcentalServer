@@ -462,8 +462,6 @@ async function run() {
       }
     })
 
-
-
     app.post('/api/guest', async (req, res) => {
       try {
         const { guestDob } = req.body;
@@ -471,8 +469,11 @@ async function run() {
 
         // Calculate age
         const birthDate = new Date(guestDob);
-        const age = new Date().getFullYear() - birthDate.getFullYear();
-
+        const year = new Date().getFullYear() - birthDate.getFullYear();
+        const month = new Date().getMonth() - birthDate.getMonth();
+        const day  =new Date().getDate() - birthDate.getDate();
+        
+        const age = year * 365 + month * 30 + day;
         // Query the database
         const response = await vaccines.find({ minimum_age: { $lte: age }, maximum_age: { $gte: age } }).toArray();
 
@@ -484,6 +485,27 @@ async function run() {
         res.status(500).send('Internal server error');
       }
     });
+
+    // app.post('/api/guest', async (req, res) => {
+    //   try {
+    //     const { guestDob } = req.body;
+    //     console.log(guestDob);
+
+    //     // Calculate age
+    //     const birthDate = new Date(guestDob);
+    //     const age = new Date().getFullYear() - birthDate.getFullYear();
+
+    //     // Query the database
+    //     const response = await vaccines.find({ minimum_age: { $lte: age }, maximum_age: { $gte: age } }).toArray();
+
+    //     res.status(201).send({ data: response });
+    //     console.log(response);
+    //   }
+    //   catch (error) {
+    //     console.error('Error:', error);
+    //     res.status(500).send('Internal server error');
+    //   }
+    // });
 
 
     // -------------------------------------------------------------------------------------------------------------- Admin 
