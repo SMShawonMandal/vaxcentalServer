@@ -2,7 +2,11 @@ const express = require('express')
 const app = express()
 const port = 5001
 const cors = require('cors');
-app.use(cors());
+// app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174','https://vaxcentral.netlify.app' ],
+  credentials: true
+}))
 app.use(express.json());
 const jwt = require('jsonwebtoken');
 
@@ -78,19 +82,50 @@ async function run() {
     // User Api
     // ---------------------------------------------------------------------------------------------
     // create user api
+    
+
     app.post('/api/signup', async (req, res) => {
       try {
         // Extract form data from request body
         const { fullName, nidNumber, mobileNumber, dob, password, designation } = req.body;
-
-        // Updated here
-        const latestUser = await UserCollection.countDocuments() // This line helps to count total data from a database
-
-        // after then total data + 1
-        const userId = latestUser + 1
-
+    
+        // Check if a user with the same NID or phone number already exists
+        const existingUser = await UserCollection.findOne({
+          $or: [
+            { nidNumber },
+            { mobileNumber }
+          ]
+        });
+    
+        if (existingUser) {
+          // If a user already exists, return a specific response
+          return res.status(409).send('User with this NID or phone number already exists');
+        }
+    
+        // Find the latest user to determine the userId
+        const latestUser = await UserCollection.find().sort({ userId: -1 }).limit(1).toArray();
+    
+        let userId;
+        if (latestUser.length > 0) {
+          // Calculate the missing userId, if any
+          const lastUserId = latestUser[0].userId;
+          for (let i = 1; i <= lastUserId; i++) {
+            const userExists = await UserCollection.findOne({ userId: i });
+            if (!userExists) {
+              userId = i; // Found a missing userId
+              break;
+            }
+          }
+          if (!userId) {
+            userId = lastUserId + 1; // All numbers up to lastUserId are taken, increment by 1
+          }
+        } else {
+          userId = 1; // No users exist, start with userId 1
+        }
+    
+        // Insert the new user
         const result = await UserCollection.insertOne({
-          userId, // Insert incremented userId
+          userId, // Insert the determined userId
           fullName,
           nidNumber,
           mobileNumber,
@@ -98,16 +133,17 @@ async function run() {
           password,
           designation
         });
-
+    
         console.log(userId, fullName, nidNumber, mobileNumber, dob, password, designation);
-        // console.log('User inserted:', result);
-
+    
         res.status(201).send('User registered successfully');
       } catch (error) {
         console.error('Error:', error);
         res.status(500).send('Internal server error');
       }
     });
+    
+
 
     app.get('/api/signup', async (req, res) => {
       try {
@@ -124,6 +160,7 @@ async function run() {
 
     app.post('/api/login', async (req, res) => {
       try {
+        console.log(req.body);
         const { mobileNumber, password } = req.body;
 
         const userData = await UserCollection.findOne({ mobileNumber: mobileNumber, password: password });
@@ -155,7 +192,7 @@ async function run() {
     // --------------------------------------------------------------------------------------------
     //update vaccine status for children ongoing api 
     app.patch('/api/childOngoing', async (req, res) => {
-     
+
       try {
         const { name, nextDate, nid, vaccine_name, total_doses } = req.body;
 
@@ -471,8 +508,8 @@ async function run() {
         const birthDate = new Date(guestDob);
         const year = new Date().getFullYear() - birthDate.getFullYear();
         const month = new Date().getMonth() - birthDate.getMonth();
-        const day  =new Date().getDate() - birthDate.getDate();
-        
+        const day = new Date().getDate() - birthDate.getDate();
+
         const age = year * 365 + month * 30 + day;
         // Query the database
         const response = await vaccines.find({ minimum_age: { $lte: age }, maximum_age: { $gte: age } }).toArray();
@@ -588,9 +625,27 @@ async function run() {
       try {
         const { fullName, nidNumber, mobileNumber, dob, password } = req.body;
 
-        const latestUser = await UserCollection.countDocuments();
+        const latestUser = await UserCollection.find().sort({ userId: -1 }).limit(1).toArray();
+    
+        let userId;
+        if (latestUser.length > 0) {
+          // Calculate the missing userId, if any
+          const lastUserId = latestUser[0].userId;
+          for (let i = 1; i <= lastUserId; i++) {
+            const userExists = await UserCollection.findOne({ userId: i });
+            if (!userExists) {
+              userId = i; // Found a missing userId
+              break;
+            }
+          }
+          if (!userId) {
+            userId = lastUserId + 1; // All numbers up to lastUserId are taken, increment by 1
+          }
+        } else {
+          userId = 1; // No users exist, start with userId 1
+        }
 
-        const userId = latestUser + 1;
+  
 
         // check if existing user exists using nid
 
